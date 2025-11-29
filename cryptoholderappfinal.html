@@ -27,178 +27,7 @@
                 }
             }
         }
-
-// JSONBIN STORAGE - VERSÃO SIMPLES E FUNCIONAL
-const JSONBin = {
-    MASTER_KEY: '$2a$10$X5MFvq8GLK0lXekQ0OPyueQ1bqbbv1A48VT4JR.kOAujJO2NWLI7G', // ← SUA KEY DO JSONBIN
-    BIN_ID: localStorage.getItem('crypto_bin_id'),
-    API_URL: 'https://api.jsonbin.io/v3/b',
-    
-    init() {
-        console.log('📦 JSONBin inicializado');
-        if (this.BIN_ID) {
-            console.log('🔗 Bin ID encontrado:', this.BIN_ID);
-        }
-    },
-
-    // SALVAR TODOS OS DADOS
-    async saveAllData() {
-        const data = {
-            tokens: App.State.tokens,
-            alerts: App.State.alerts,
-            trades: App.State.trades.slice(0, 50),
-            settings: App.State.settings,
-            lastUpdated: new Date().toISOString()
-        };
-
-        console.log('💾 Salvando dados...', {
-            tokens: data.tokens.length,
-            alerts: data.alerts.length,
-            trades: data.trades.length
-        });
-
-        try {
-            let response;
-            
-            if (this.BIN_ID) {
-                // ATUALIZAR BIN EXISTENTE
-                console.log('🔄 Atualizando bin existente:', this.BIN_ID);
-                response = await fetch(`${this.API_URL}/${this.BIN_ID}`, {
-                    method: 'PUT',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'X-Master-Key': this.MASTER_KEY
-                    },
-                    body: JSON.stringify(data)
-                });
-            } else {
-                // CRIAR NOVO BIN
-                console.log('🆕 Criando novo bin...');
-                response = await fetch(this.API_URL, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'X-Master-Key': this.MASTER_KEY,
-                        'X-Bin-Name': 'CryptoPanelPRO Data'
-                    },
-                    body: JSON.stringify(data)
-                });
-                
-                const result = await response.json();
-                if (result.metadata && result.metadata.id) {
-                    this.BIN_ID = result.metadata.id;
-                    localStorage.setItem('crypto_bin_id', this.BIN_ID);
-                    console.log('✅ Novo bin criado:', this.BIN_ID);
-                }
-            }
-            
-            if (response && response.ok) {
-                console.log('✅ Dados salvos no JSONBin!');
-            } else {
-                throw new Error('Erro na resposta');
-            }
-            
-        } catch (error) {
-            console.log('❌ Erro JSONBin, usando localStorage:', error);
-            this.saveToLocalStorage();
-        }
-    },
-
-    // CARREGAR TODOS OS DADOS
-    async loadAllData() {
-        // Primeiro tenta JSONBin se tiver bin_id
-        if (this.BIN_ID) {
-            try {
-                console.log('📥 Carregando do JSONBin:', this.BIN_ID);
-                const response = await fetch(`${this.API_URL}/${this.BIN_ID}/latest`, {
-                    headers: {
-                        'X-Master-Key': this.MASTER_KEY
-                    }
-                });
-                
-                if (!response.ok) throw new Error('Bin não encontrado');
-                
-                const result = await response.json();
-                const data = result.record;
-                
-                this.applyData(data);
-                console.log('✅ Dados carregados do JSONBin!');
-                return;
-                
-            } catch (error) {
-                console.log('❌ Erro ao carregar do JSONBin:', error);
-                this.BIN_ID = null;
-                localStorage.removeItem('crypto_bin_id');
-            }
-        }
-        
-        // Fallback para localStorage
-        console.log('📥 Carregando do localStorage...');
-        this.loadFromLocalStorage();
-    },
-
-    // APLICAR DADOS CARREGADOS
-    applyData(data) {
-        if (data.tokens) App.State.tokens = data.tokens;
-        if (data.alerts) App.State.alerts = data.alerts;
-        if (data.trades) App.State.trades = data.trades;
-        if (data.settings) App.State.settings = data.settings;
-        
-        console.log('📊 Dados aplicados:', {
-            tokens: App.State.tokens.length,
-            alerts: App.State.alerts.length,
-            trades: App.State.trades.length
-        });
-    },
-
-    // SALVAR NO LOCALSTORAGE (BACKUP)
-    saveToLocalStorage() {
-        localStorage.setItem('holder_tokens', JSON.stringify(App.State.tokens));
-        localStorage.setItem('holder_alerts', JSON.stringify(App.State.alerts));
-        localStorage.setItem('holder_trades', JSON.stringify(App.State.trades.slice(0, 50)));
-        localStorage.setItem('holder_settings', JSON.stringify(App.State.settings));
-        console.log('💾 Dados salvos no localStorage (backup)');
-    },
-
-    // CARREGAR DO LOCALSTORAGE
-    loadFromLocalStorage() {
-        const tokens = JSON.parse(localStorage.getItem('holder_tokens'));
-        const alerts = JSON.parse(localStorage.getItem('holder_alerts'));
-        const trades = JSON.parse(localStorage.getItem('holder_trades'));
-        const settings = JSON.parse(localStorage.getItem('holder_settings'));
-        
-        if (tokens) App.State.tokens = tokens;
-        if (alerts) App.State.alerts = alerts;
-        if (trades) App.State.trades = trades;
-        if (settings) App.State.settings = settings;
-        
-        console.log('📊 Dados do localStorage:', {
-            tokens: App.State.tokens.length,
-            alerts: App.State.alerts.length,
-            trades: App.State.trades.length
-        });
-    },
-
-    // MIGRAR DADOS LOCAIS PARA JSONBIN
-    async migrateToCloud() {
-        const localTokens = JSON.parse(localStorage.getItem('holder_tokens'));
-        
-        if (!localTokens || localTokens.length === 0) {
-            console.log('📱 Nenhum dado local para migrar');
-            return;
-        }
-        
-        console.log('🚀 Migrando dados locais para JSONBin...');
-        App.State.tokens = localTokens;
-        App.State.alerts = JSON.parse(localStorage.getItem('holder_alerts')) || [];
-        App.State.trades = JSON.parse(localStorage.getItem('holder_trades')) || [];
-        
-        await this.saveAllData();
-        console.log('🎉 Migração concluída!');
-    }
-};    
-
-</script>
+    </script>
 
     <style>
         /* Todos os estilos CSS existentes preservados */
@@ -613,21 +442,15 @@ const JSONBin = {
 
         const App = {
             State: {
-    tokens: JSON.parse(localStorage.getItem('holder_tokens')) || ['BTCUSDT', 'ETHUSDT', 'BNBUSDT', 'SOLUSDT', 'ADAUSDT', 'XRPUSDT', 'DOTUSDT', 'LINKUSDT', 'LTCUSDT', 'BCHUSDT'],
-    alerts: JSON.parse(localStorage.getItem('holder_alerts')) || [],
-    trades: JSON.parse(localStorage.getItem('holder_trades')) || [],
-    ws: null, charts: {}, activeCard: null,
-    settings: JSON.parse(localStorage.getItem('holder_settings')) || { autoRefresh: true, refreshInterval: 60, alertSounds: true, defaultTimeframe: '1h' },
-    marketData: {}, ohlcData: {}, indicatorsData: {}, fiboData: {},
-    timeframes: ["1m","3m","5m","15m","1h","4h","1d","1w"],
-    currentPeriod: "24h",
-    
-    // Função para salvar automaticamente no JSONBin
-    autoSave: function() {
-        console.log('💾 Salvamento automático...');
-        JSONBin.saveAllData();
-    }
-},
+                tokens: JSON.parse(localStorage.getItem('holder_tokens')) || ['BTCUSDT', 'ETHUSDT', 'BNBUSDT', 'SOLUSDT', 'ADAUSDT', 'XRPUSDT', 'DOTUSDT', 'LINKUSDT', 'LTCUSDT', 'BCHUSDT'],
+                alerts: JSON.parse(localStorage.getItem('holder_alerts')) || [],
+                trades: JSON.parse(localStorage.getItem('holder_trades')) || [],
+                ws: null, charts: {}, activeCard: null,
+                settings: JSON.parse(localStorage.getItem('holder_settings')) || { autoRefresh: true, refreshInterval: 60, alertSounds: true, defaultTimeframe: '1h' },
+                marketData: {}, ohlcData: {}, indicatorsData: {}, fiboData: {},
+                timeframes: ["1m","3m","5m","15m","1h","4h","1d","1w"],
+                currentPeriod: "24h"
+            },
 
             // 1. LIBRARY: Conteúdo educacional para Holder PROFISSIONAL
             Library: {
@@ -1219,59 +1042,76 @@ const JSONBin = {
                 
                 // Função PROFISSIONAL para calcular variações baseadas em timeframe adequado
                 calculatePriceChange: (symbol, period) => {
-                    const ohlc1h = App.Core.getOHLC(symbol, "1h");
-                    const ohlc1d = App.Core.getOHLC(symbol, "1d");
-                    const currentPrice = App.State.marketData[symbol.toLowerCase()]?.lastPrice;
-                    
-                    if (!currentPrice || (!ohlc1h.length && !ohlc1d.length)) return 0;
-                    
-                    let pastPrice = 0;
-                    const now = Date.now();
-                    
-                    switch(period) {
-                        case "1h":
-                            if (ohlc1h.length < 2) return 0;
-                            // Pegar candle de 1h atrás (considerando que o último candle pode ser incompleto)
-                            const oneHourAgo = now - (60 * 60 * 1000);
-                            for (let i = ohlc1h.length - 1; i >= 0; i--) {
-                                if (ohlc1h[i].time <= oneHourAgo) {
-                                    pastPrice = ohlc1h[i].close;
-                                    break;
-                                }
-                            }
-                            if (pastPrice === 0 && ohlc1h.length >= 2) {
-                                pastPrice = ohlc1h[ohlc1h.length - 2].close;
-                            }
-                            break;
-                            
-                        case "24h":
-                            if (ohlc1h.length < 24) return 0;
-                            const twentyFourHoursAgo = now - (24 * 60 * 60 * 1000);
-                            for (let i = ohlc1h.length - 1; i >= 0; i--) {
-                                if (ohlc1h[i].time <= twentyFourHoursAgo) {
-                                    pastPrice = ohlc1h[i].close;
-                                    break;
-                                }
-                            }
-                            break;
-                            
-                        case "7d":
-                            if (ohlc1d.length < 7) return 0;
-                            pastPrice = ohlc1d[ohlc1d.length - 7].close;
-                            break;
-                            
-                        case "30d":
-                            if (ohlc1d.length < 30) return 0;
-                            pastPrice = ohlc1d[ohlc1d.length - 30].close;
-                            break;
-                            
-                        default:
-                            return 0;
-                    }
-                    
-                    if (pastPrice === 0) return 0;
-                    return ((currentPrice - pastPrice) / pastPrice) * 100;
+    const currentPrice = App.State.marketData[symbol.toLowerCase()]?.lastPrice;
+    if (!currentPrice || currentPrice === 0) return 0;
+    
+    let pastPrice = 0;
+    let ohlc;
+    
+    try {
+        switch(period) {
+            case "1h":
+                ohlc = App.Core.getOHLC(symbol, "1h");
+                if (ohlc && ohlc.length >= 2) {
+                    // Usar candle de 1h atrás (índice -2 para evitar candle incompleto)
+                    pastPrice = ohlc[ohlc.length - 2].close;
                 }
+                break;
+                
+            case "24h":
+                ohlc = App.Core.getOHLC(symbol, "4h");
+                if (ohlc && ohlc.length >= 6) {
+                    // 24h = 6 candles de 4h
+                    pastPrice = ohlc[ohlc.length - 6].close;
+                }
+                // Fallback para 1d se 4h não disponível
+                if (!pastPrice) {
+                    ohlc = App.Core.getOHLC(symbol, "1d");
+                    if (ohlc && ohlc.length >= 1) {
+                        pastPrice = ohlc[ohlc.length - 1].open; // Abertura do dia anterior
+                    }
+                }
+                break;
+                
+            case "7d":
+                ohlc = App.Core.getOHLC(symbol, "1d");
+                if (ohlc && ohlc.length >= 7) {
+                    pastPrice = ohlc[ohlc.length - 7].close;
+                }
+                break;
+                
+            case "30d":
+                ohlc = App.Core.getOHLC(symbol, "1d");
+                if (ohlc && ohlc.length >= 30) {
+                    pastPrice = ohlc[ohlc.length - 30].close;
+                }
+                break;
+                
+            default:
+                return 0;
+        }
+        
+        // Verificação final de segurança
+        if (!pastPrice || pastPrice === 0) {
+            console.warn(`Preço passado inválido para ${symbol} ${period}`);
+            return 0;
+        }
+        
+        const change = ((currentPrice - pastPrice) / pastPrice) * 100;
+        
+        // Filtro de outliers (evitar +10000% por dados corrompidos)
+        if (Math.abs(change) > 1000) {
+            console.warn(`Variação extrema detectada para ${symbol} ${period}: ${change}%`);
+            return 0;
+        }
+        
+        return change;
+        
+    } catch (error) {
+        console.error(`Erro em calculatePriceChange para ${symbol} ${period}:`, error);
+        return 0;
+    }
+}
             },
 
             // 3. MATH HELPER PROFISSIONAL
@@ -1579,6 +1419,98 @@ const JSONBin = {
                         };
                     }
                 },
+// 1. Detectar divergências de RSI
+calcRSIDivergence: (ohlc, rsiSeries) => {
+    if (!ohlc || ohlc.length < 10 || !rsiSeries || rsiSeries.length < 10) {
+        return null;
+    }
+    
+    try {
+        const prices = ohlc.map(c => c.close);
+        const recentPrices = prices.slice(-8); // Últimos 8 períodos
+        const recentRSI = rsiSeries.slice(-8);
+        
+        // Encontrar máximos e mínimos nos últimos 5 períodos
+        const priceExtremes = {
+            high: Math.max(...recentPrices.slice(-5)),
+            low: Math.min(...recentPrices.slice(-5)),
+            highIndex: recentPrices.slice(-5).indexOf(Math.max(...recentPrices.slice(-5))),
+            lowIndex: recentPrices.slice(-5).indexOf(Math.min(...recentPrices.slice(-5)))
+        };
+        
+        const rsiExtremes = {
+            high: Math.max(...recentRSI.slice(-5)),
+            low: Math.min(...recentRSI.slice(-5)),
+            highIndex: recentRSI.slice(-5).indexOf(Math.max(...recentRSI.slice(-5))),
+            lowIndex: recentRSI.slice(-5).indexOf(Math.min(...recentRSI.slice(-5)))
+        };
+        
+        // Divergência de baixa: Preço faz higher high, RSI faz lower high
+        if (priceExtremes.highIndex === 4 && rsiExtremes.highIndex === 4) {
+            const pricePrevHigh = Math.max(...recentPrices.slice(0, 4));
+            const rsiPrevHigh = Math.max(...recentRSI.slice(0, 4));
+            
+            if (priceExtremes.high > pricePrevHigh && rsiExtremes.high < rsiPrevHigh) {
+                return 'bearish_divergence';
+            }
+        }
+        
+        // Divergência de alta: Preço faz lower low, RSI faz higher low
+        if (priceExtremes.lowIndex === 4 && rsiExtremes.lowIndex === 4) {
+            const pricePrevLow = Math.min(...recentPrices.slice(0, 4));
+            const rsiPrevLow = Math.min(...recentRSI.slice(0, 4));
+            
+            if (priceExtremes.low < pricePrevLow && rsiExtremes.low > rsiPrevLow) {
+                return 'bullish_divergence';
+            }
+        }
+        
+        return 'no_divergence';
+        
+    } catch (error) {
+        console.error('Erro em calcRSIDivergence:', error);
+        return null;
+    }
+},
+
+// 2. Confirmar movimento com volume
+calcVolumeConfirmation: (ohlc) => {
+    if (!ohlc || ohlc.length < 6) return null;
+    
+    try {
+        const recent = ohlc.slice(-6);
+        let bullishSignals = 0;
+        let bearishSignals = 0;
+        
+        // Calcular volume médio dos últimos 20 períodos para referência
+        const volumeReference = ohlc.length >= 20 ? 
+            ohlc.slice(-20).reduce((sum, candle) => sum + candle.volume, 0) / 20 :
+            recent.reduce((sum, candle) => sum + candle.volume, 0) / recent.length;
+        
+        for (let i = 1; i < recent.length; i++) {
+            const current = recent[i];
+            const previous = recent[i-1];
+            const volumeRatio = current.volume / volumeReference;
+            
+            // Sinal de alta: preço sobe com volume acima da média
+            if (current.close > previous.close && volumeRatio > 1.3) {
+                bullishSignals++;
+            }
+            // Sinal de baixa: preço cai com volume acima da média
+            else if (current.close < previous.close && volumeRatio > 1.3) {
+                bearishSignals++;
+            }
+        }
+        
+        if (bullishSignals >= 3 && bearishSignals <= 1) return 'strong_bullish';
+        if (bearishSignals >= 3 && bullishSignals <= 1) return 'strong_bearish';
+        return 'neutral';
+        
+    } catch (error) {
+        console.error('Erro em calcVolumeConfirmation:', error);
+        return null;
+    }
+},
 
                 // ATUALIZAÇÃO COMPLETA DOS INDICADORES
                 updateIndicators: (symbol, tf) => {
@@ -1625,159 +1557,185 @@ const JSONBin = {
                     } else {
                         ind.sma30 = null;
                     }
-                    
+                        // ========== INÍCIO DO BLOCO PREDITIVO ==========
+    // 1. Divergência de RSI
+    const rsiSeries = closes.map((_, idx, arr) => {
+        if (idx < 14) return null;
+        return App.Indicators.calcRSI(arr.slice(0, idx + 1));
+    }).filter(val => val !== null);
+
+    if (rsiSeries.length >= 10) {
+        ind.rsiDivergence = App.Indicators.calcRSIDivergence(ohlc, rsiSeries);
+    }
+
+    // 2. Confirmação de Volume
+    ind.volumeConfirmation = App.Indicators.calcVolumeConfirmation(ohlc);
+
+    // 3. Volume Relativo (média dos últimos 20 dias)
+    if (ohlc.length >= 20) {
+        const recentVolume = ohlc.slice(-20).map(c => c.volume);
+        const avgVolume = recentVolume.reduce((a, b) => a + b, 0) / recentVolume.length;
+        const currentVolume = ohlc[ohlc.length - 1].volume;
+        ind.volumeRatio = currentVolume / avgVolume;
+    }
+    // ========== FIM DO BLOCO PREDITIVO ==========
                     // Calcular Score Holder profissional
                     ind.holderScore = App.Indicators.calcHolderScore(ind);
                 },
                 
                 // SCORE HOLDER PROFISSIONAL - FUNÇÃO ATUALIZADA COM ANTI-PUMP 2.0
                 calcHolderScore: (ind) => {
-                    let score = 50; // Base de 50 pontos
+    let score = 50; // Base de 50 pontos
 
-                    // 1. RSI - Momentum (máximo ±20 pontos)
-                    if (ind.rsi !== null && ind.rsi !== undefined) {
-                        if (ind.rsi < 30) score += 20;           // Forte oversold
-                        else if (ind.rsi < 35) score += 15;      // Oversold
-                        else if (ind.rsi < 40) score += 10;      // Leve oversold
-                        else if (ind.rsi > 70) score -= 25;      // Forte overbought
-                        else if (ind.rsi > 65) score -= 15;      // Overbought
-                        else if (ind.rsi > 60) score -= 10;      // Leve overbought
-                        else if (ind.rsi > 55) score -= 5;       // Penalidade para RSI acima de 55
-                    }
+    // 1. RSI - Momentum (máximo ±20 pontos) - MANTIDO
+    if (ind.rsi !== null && ind.rsi !== undefined) {
+        if (ind.rsi < 30) score += 20;
+        else if (ind.rsi < 35) score += 15;
+        else if (ind.rsi < 40) score += 10;
+        else if (ind.rsi > 70) score -= 25;
+        else if (ind.rsi > 65) score -= 15;
+        else if (ind.rsi > 60) score -= 10;
+        else if (ind.rsi > 55) score -= 5;
+    }
 
-                    // 2. Distância ao suporte - Risco de entrada (máximo +20 pontos)
-                    if (ind.nearestSupport && typeof ind.nearestSupport.percent === 'number') {
-                        const sup = ind.nearestSupport.percent;
-                        if (sup < 1) score += 20;        // Muito próximo do suporte
-                        else if (sup < 2) score += 15;   // Próximo do suporte
-                        else if (sup < 3) score += 10;   // Moderadamente próximo
-                        else if (sup < 5) score += 5;    // Relativamente próximo
-                    }
+    // 2. Distância ao suporte - Risco de entrada (AJUSTADO)
+    if (ind.nearestSupport && typeof ind.nearestSupport.percent === 'number') {
+        const sup = ind.nearestSupport.percent;
+        if (sup < 2) score += 15;        // Muito próximo do suporte
+        else if (sup < 3) score += 12;   // Próximo do suporte
+        else if (sup < 5) score += 8;    // Moderadamente próximo
+        else if (sup < 8) score += 5;    // Relativamente próximo
+    }
 
-                    // 3. Fibonacci 0.618 - Zona de compra ideal (máximo +15/-30 pontos)
-                    if (ind.fibonacci && ind.currentPrice) {
-                        const distTo618 = App.MathHelper.getFibonacciDistance(ind.fibonacci.f0618, ind.currentPrice);
-                        
-                        // Confluência positiva (próximo do Fib 0.618)
-                        if (Math.abs(distTo618) <= 2) score += 15;       // Muito próximo
-                        else if (Math.abs(distTo618) <= 5) score += 10;  // Próximo
-                        else if (Math.abs(distTo618) <= 8) score += 5;   // Relativamente próximo
-                        
-                        // Penalidade por afastamento para cima (já passou do Fib 0.618)
-                        if (distTo618 < -5) score -= 10;    // Já passou 5% acima
-                        if (distTo618 < -10) score -= 20;   // Já passou 10% acima
-                        if (distTo618 < -15) score -= 30;   // Já passou 15% acima
-                    }
+    // 3. Fibonacci 0.618 - Zona de compra ideal (MANTIDO)
+    if (ind.fibonacci && ind.currentPrice) {
+        const distTo618 = App.MathHelper.getFibonacciDistance(ind.fibonacci.f0618, ind.currentPrice);
+        
+        if (Math.abs(distTo618) <= 2) score += 15;
+        else if (Math.abs(distTo618) <= 5) score += 10;
+        else if (Math.abs(distTo618) <= 8) score += 5;
+        
+        if (distTo618 < -5) score -= 10;
+        if (distTo618 < -10) score -= 20;
+        if (distTo618 < -15) score -= 30;
+    }
 
-                    // 4. SMA30 - Tendência de médio prazo (máximo +15/-30 pontos)
-                    if (ind.sma30 && ind.currentPrice) {
-                        const smaDist = ((ind.currentPrice - ind.sma30) / ind.sma30) * 100;
-                        
-                        // Zona barata (abaixo da SMA30)
-                        if (smaDist < -10) score += 15;       // Muito abaixo
-                        else if (smaDist < 0) score += 10;    // Abaixo
-                        
-                        // Penalidade por estar acima da SMA30 (esticamento)
-                        if (smaDist > 5) score -= 10;    // 5% acima
-                        if (smaDist > 10) score -= 20;   // 10% acima
-                        if (smaDist > 15) score -= 30;   // 15% acima
-                    }
+    // 4. SMA30 - Tendência de médio prazo (AJUSTADO)
+    if (ind.sma30 && ind.currentPrice) {
+        const smaDist = ((ind.currentPrice - ind.sma30) / ind.sma30) * 100;
+        
+        if (smaDist < -10) score += 15;
+        else if (smaDist < 0) score += 10;
+        
+        // PENALIDADES SUAVIZADAS
+        if (smaDist > 10) score -= 10;
+        if (smaDist > 20) score -= 20;
+        if (smaDist > 30) score -= 30;
+    }
 
-                    // 5. Variações de preço - Anti-pump (máximo +10/-60 pontos)
-                    // 5.1 Variação 24h
-                    if (ind.ch24h !== null && ind.ch24h !== undefined) {
-                        if (ind.ch24h > 15) score -= 30;
-                        else if (ind.ch24h > 10) score -= 20;
-                        else if (ind.ch24h > 5) score -= 10;
-                        else if (ind.ch24h <= -7) score += 10;         // Queda forte
-                        else if (ind.ch24h <= -3) score += 5;          // Queda moderada
-                    }
+    // 5. Variações de preço - Anti-pump (RE-EQUILIBRADO)
+    // TOTAL MÁXIMO NEGATIVO: -40 (era -60)
+    if (ind.ch24h !== null && ind.ch24h !== undefined) {
+        if (ind.ch24h > 20) score -= 15;
+        else if (ind.ch24h > 12) score -= 10;
+        else if (ind.ch24h > 8) score -= 5;
+        else if (ind.ch24h <= -7) score += 10;
+        else if (ind.ch24h <= -3) score += 5;
+    }
 
-                    // 5.2 Variação 7d
-                    if (ind.ch7d !== null && ind.ch7d !== undefined) {
-                        if (ind.ch7d > 30) score -= 30;
-                        else if (ind.ch7d > 20) score -= 20;
-                        else if (ind.ch7d > 10) score -= 10;
-                        else if (ind.ch7d <= -15) score += 10;        // Semana muito negativa
-                        else if (ind.ch7d <= -8) score += 5;          // Semana negativa
-                    }
+    if (ind.ch7d !== null && ind.ch7d !== undefined) {
+        if (ind.ch7d > 40) score -= 15;
+        else if (ind.ch7d > 25) score -= 10;
+        else if (ind.ch7d > 15) score -= 5;
+        else if (ind.ch7d <= -15) score += 10;
+        else if (ind.ch7d <= -8) score += 5;
+    }
 
-                    // 5.3 Variação 30d
-                    if (ind.ch30d !== null && ind.ch30d !== undefined) {
-                        if (ind.ch30d > 60) score -= 30;
-                        else if (ind.ch30d > 40) score -= 20;
-                        else if (ind.ch30d > 20) score -= 10;
-                        else if (ind.ch30d <= -25) score += 10;       // Mês muito negativo
-                        else if (ind.ch30d <= -15) score += 5;        // Mês negativo
-                    }
+    if (ind.ch30d !== null && ind.ch30d !== undefined) {
+        if (ind.ch30d > 80) score -= 15;
+        else if (ind.ch30d > 50) score -= 10;
+        else if (ind.ch30d > 30) score -= 5;
+        else if (ind.ch30d <= -25) score += 10;
+        else if (ind.ch30d <= -15) score += 5;
+    }
 
-                    // 6. Volatilidade - Risco de mercado (máximo +10/-5 pontos)
-                    if (ind.volatility !== null && ind.volatility !== undefined) {
-                        if (ind.volatility < 3) score += 10;      // Baixa volatilidade
-                        else if (ind.volatility < 5) score += 5;  // Volatilidade moderada
-                        else if (ind.volatility > 15) score -= 5; // Alta volatilidade
-                    }
+    // 6. Volatilidade - Risco de mercado (MANTIDO)
+    if (ind.volatility !== null && ind.volatility !== undefined) {
+        if (ind.volatility < 3) score += 10;
+        else if (ind.volatility < 5) score += 5;
+        else if (ind.volatility > 15) score -= 5;
+    }
 
-                    // 7. Resistência próxima - Anti-compra em topo (máximo -25 pontos)
-                    if (ind.nearestResistance && typeof ind.nearestResistance.percent === 'number') {
-                        const res = ind.nearestResistance.percent;
-                        if (res < 2) score -= 20;        // Colado na resistência
-                        else if (res < 5) score -= 10;   // Próximo
-                    }
+    // 7. Resistência próxima - Anti-compra em topo (MANTIDO)
+    if (ind.nearestResistance && typeof ind.nearestResistance.percent === 'number') {
+        const res = ind.nearestResistance.percent;
+        if (res < 2) score -= 20;
+        else if (res < 5) score -= 10;
+    }
 
-                    // 8. Fibonacci de venda (1.272 e 1.618) - Zonas de realização (máximo -25 pontos)
-                    if (ind.fibonacci && ind.currentPrice) {
-                        const p = ind.currentPrice;
-                        
-                        // Distância até as extensões de venda
-                        const dist1272 = App.MathHelper.getFibonacciDistance(ind.fibonacci.f1272, p);
-                        const dist1618 = App.MathHelper.getFibonacciDistance(ind.fibonacci.f1618, p);
-                        
-                        // Penalizar se próximo das extensões de Fibonacci (zonas de venda)
-                        if (Math.abs(dist1272) <= 3) score -= 15; // Próximo da extensão 1.272
-                        if (Math.abs(dist1618) <= 3) score -= 25; // Próximo da extensão 1.618
-                    }
+    // 8. Fibonacci de venda (MANTIDO)
+    if (ind.fibonacci && ind.currentPrice) {
+        const p = ind.currentPrice;
+        const dist1272 = App.MathHelper.getFibonacciDistance(ind.fibonacci.f1272, p);
+        const dist1618 = App.MathHelper.getFibonacciDistance(ind.fibonacci.f1618, p);
+        
+        if (Math.abs(dist1272) <= 3) score -= 15;
+        if (Math.abs(dist1618) <= 3) score -= 25;
+    }
 
-                    // 9. PREVENÇÃO DE SCORE 100 EM ATIVOS COM ALTA RECENTE
-                    // Bloqueio máximo para ativos com alta forte
-                    if (score > 85) {
-                        // Verificar se tem alguma alta forte recente
-                        const hasStrongGain = (ind.ch24h > 10) || (ind.ch7d > 20) || (ind.ch30d > 40);
-                        const hasHighRSI = ind.rsi > 60;
-                        const isFarFromFib618 = ind.fibonacci && ind.currentPrice && 
-                                              App.MathHelper.getFibonacciDistance(ind.fibonacci.f0618, ind.currentPrice) < -10;
-                        
-                        if (hasStrongGain || hasHighRSI || isFarFromFib618) {
-                            score = Math.min(score, 75); // Limitar score máximo
-                        }
-                    }
+    // 9. FATORES PREDITIVOS - NOVOS (Máximo ±15 pontos)
+    
+    // 9.1 Divergência de RSI (±10 pontos)
+    if (ind.rsiDivergence) {
+        if (ind.rsiDivergence === 'bullish_divergence') score += 10;
+        else if (ind.rsiDivergence === 'bearish_divergence') score -= 10;
+    }
+    
+    // 9.2 Confirmação de Volume (±5 pontos)
+    if (ind.volumeConfirmation) {
+        if (ind.volumeConfirmation === 'strong_bullish') score += 5;
+        else if (ind.volumeConfirmation === 'strong_bearish') score -= 5;
+    }
+    
+    // 9.3 Volume Relativo (±5 pontos)
+    if (ind.volumeRatio !== null && ind.volumeRatio !== undefined) {
+        if (ind.volumeRatio > 1.5) score += 5;      // Volume alto confirmando movimento
+        else if (ind.volumeRatio < 0.3) score -= 5; // Volume muito baixo (falta de interesse)
+    }
 
-                    // 10. BÔNUS EXTRA PARA SETUPS PERFEITOS (máximo +10 pontos)
-                    // Apenas se já estiver com score alto e condições ideais
-                    if (score > 70) {
-                        let bonus = 0;
-                        
-                        // Setup perfeito: RSI oversold + próximo do suporte + próximo do Fib 0.618
-                        if (ind.rsi < 30 && ind.nearestSupport && ind.nearestSupport.percent < 2 && 
-                            ind.fibonacci && ind.currentPrice && 
-                            Math.abs(App.MathHelper.getFibonacciDistance(ind.fibonacci.f0618, ind.currentPrice)) <= 3) {
-                            bonus += 10;
-                        }
-                        
-                        // Setup muito bom: RSI oversold + abaixo da SMA30
-                        else if (ind.rsi < 35 && ind.sma30 && ind.currentPrice < ind.sma30) {
-                            bonus += 5;
-                        }
-                        
-                        score += bonus;
-                    }
+    // 10. PREVENÇÃO DE SCORE 100 (MANTIDO)
+    if (score > 85) {
+        const hasStrongGain = (ind.ch24h > 10) || (ind.ch7d > 20) || (ind.ch30d > 40);
+        const hasHighRSI = ind.rsi > 60;
+        const isFarFromFib618 = ind.fibonacci && ind.currentPrice && 
+                              App.MathHelper.getFibonacciDistance(ind.fibonacci.f0618, ind.currentPrice) < -10;
+        
+        if (hasStrongGain || hasHighRSI || isFarFromFib618) {
+            score = Math.min(score, 75);
+        }
+    }
 
-                    // Clamp final entre 0 e 100
-                    score = Math.max(0, Math.min(100, score));
-                    
-                    // Arredondar para inteiro
-                    return Math.round(score);
-                }
+    // 11. BÔNUS DE SETUP PERFEITO (MANTIDO)
+    if (score > 70) {
+        let bonus = 0;
+        
+        if (ind.rsi < 30 && ind.nearestSupport && ind.nearestSupport.percent < 2 && 
+            ind.fibonacci && ind.currentPrice && 
+            Math.abs(App.MathHelper.getFibonacciDistance(ind.fibonacci.f0618, ind.currentPrice)) <= 3) {
+            bonus += 10;
+        }
+        else if (ind.rsi < 35 && ind.sma30 && ind.currentPrice < ind.sma30) {
+            bonus += 5;
+        }
+        
+        score += bonus;
+    }
+
+    // Clamp final entre 0 e 100
+    score = Math.max(0, Math.min(100, score));
+    
+    return Math.round(score);
+}
             },
 
             // 5. FIBONACCI PROFISSIONAL
@@ -1970,10 +1928,7 @@ Alerts: {
         App.Alerts.closeModal();
         
         App.Alerts.renderInCard(symbol);
-
-        // Salvar no JSONBin após criar alerta
-        App.State.autoSave();        
-
+        
         console.log('Alerta criado:', alert);
     },
     
@@ -2571,91 +2526,82 @@ Alerts: {
             },
 
             // 11. TOKEN MANAGEMENT
-Token: {
-    add: async () => {
-        const input = document.getElementById('add-input');
-        let val = input.value.trim().toUpperCase();
-        if (!val) return;
-        
-        const symbol = val.endsWith('USDT') ? val : val + 'USDT';
-        if (App.State.tokens.includes(symbol)) { 
-            alert('Token já na lista.'); 
-            return; 
-        }
-        
-        try {
-            const res = await fetch(`https://api.binance.com/api/v3/ticker/price?symbol=${symbol}`);
-            const data = await res.json();
-            if (data.symbol) {
-                App.State.tokens.push(symbol);
-                localStorage.setItem('holder_tokens', JSON.stringify(App.State.tokens));
-                // Salvar no JSONBin
-                App.State.autoSave();
-                location.reload();
-            } else { 
-                alert('Token não encontrado.'); 
-            }
-        } catch (e) { 
-            alert('Erro de validação.'); 
-        }
-    },
-    
-    rem: (t) => {
-        App.State.tokens = App.State.tokens.filter(x=>x!==t);
-        localStorage.setItem('holder_tokens', JSON.stringify(App.State.tokens));
-        // Salvar no JSONBin
-        App.State.autoSave();
-        location.reload();
-    },
-    
-    addBatch: () => {
-        const textarea = document.getElementById('batch-tokens');
-        const tokens = textarea.value.trim().toUpperCase().split('\n');
-        let added = 0;
-        
-        tokens.forEach(token => {
-            token = token.trim();
-            if (!token) return;
-            
-            const symbol = token.endsWith('USDT') ? token : token + 'USDT';
-            if (!App.State.tokens.includes(symbol)) {
-                App.State.tokens.push(symbol);
-                added++;
-            }
-        });
-        
-        if (added > 0) {
-            localStorage.setItem('holder_tokens', JSON.stringify(App.State.tokens));
-            // Salvar no JSONBin
-            App.State.autoSave();
-            alert(`${added} tokens adicionados com sucesso!`);
-            location.reload();
-        } else {
-            alert('Nenhum token novo foi adicionado.');
-        }
-    },
-    
-    removeSelected: () => {
-        const checkboxes = document.querySelectorAll('#settings-tokens-list .token-checkbox:checked');
-        if (checkboxes.length === 0) {
-            alert('Selecione pelo menos um token para remover.');
-            return;
-        }
-        
-        const tokensToRemove = Array.from(checkboxes).map(cb => cb.value);
-        App.State.tokens = App.State.tokens.filter(t => !tokensToRemove.includes(t));
-        localStorage.setItem('holder_tokens', JSON.stringify(App.State.tokens));
-        
-        // Salvar no JSONBin
-        App.State.autoSave();
-        
-        App.Settings.renderTokensList();
-        App.UI.grid();
-        App.UI.tables();
-        
-        alert(`${tokensToRemove.length} tokens removidos com sucesso!`);
-    }
-},
+            Token: {
+                add: async () => {
+                    const input = document.getElementById('add-input');
+                    let val = input.value.trim().toUpperCase();
+                    if (!val) return;
+                    
+                    const symbol = val.endsWith('USDT') ? val : val + 'USDT';
+                    if (App.State.tokens.includes(symbol)) { 
+                        alert('Token já na lista.'); 
+                        return; 
+                    }
+                    
+                    try {
+                        const res = await fetch(`https://api.binance.com/api/v3/ticker/price?symbol=${symbol}`);
+                        const data = await res.json();
+                        if (data.symbol) {
+                            App.State.tokens.push(symbol);
+                            localStorage.setItem('holder_tokens', JSON.stringify(App.State.tokens));
+                            location.reload();
+                        } else { 
+                            alert('Token não encontrado.'); 
+                        }
+                    } catch (e) { 
+                        alert('Erro de validação.'); 
+                    }
+                },
+                
+                rem: (t) => {
+                    App.State.tokens = App.State.tokens.filter(x=>x!==t);
+                    localStorage.setItem('holder_tokens', JSON.stringify(App.State.tokens));
+                    location.reload();
+                },
+                
+                addBatch: () => {
+                    const textarea = document.getElementById('batch-tokens');
+                    const tokens = textarea.value.trim().toUpperCase().split('\n');
+                    let added = 0;
+                    
+                    tokens.forEach(token => {
+                        token = token.trim();
+                        if (!token) return;
+                        
+                        const symbol = token.endsWith('USDT') ? token : token + 'USDT';
+                        if (!App.State.tokens.includes(symbol)) {
+                            App.State.tokens.push(symbol);
+                            added++;
+                        }
+                    });
+                    
+                    if (added > 0) {
+                        localStorage.setItem('holder_tokens', JSON.stringify(App.State.tokens));
+                        alert(`${added} tokens adicionados com sucesso!`);
+                        location.reload();
+                    } else {
+                        alert('Nenhum token novo foi adicionado.');
+                    }
+                },
+                
+                removeSelected: () => {
+                    const checkboxes = document.querySelectorAll('#settings-tokens-list .token-checkbox:checked');
+                    if (checkboxes.length === 0) {
+                        alert('Selecione pelo menos um token para remover.');
+                        return;
+                    }
+                    
+                    const tokensToRemove = Array.from(checkboxes).map(cb => cb.value);
+                    App.State.tokens = App.State.tokens.filter(t => !tokensToRemove.includes(t));
+                    localStorage.setItem('holder_tokens', JSON.stringify(App.State.tokens));
+                    
+                    App.Settings.renderTokensList();
+                    App.UI.grid();
+                    App.UI.tables();
+                    
+                    alert(`${tokensToRemove.length} tokens removidos com sucesso!`);
+                }
+            },
 
             // 12. SETTINGS
             Settings: {
@@ -2708,25 +2654,14 @@ Token: {
         });
         
         document.addEventListener('DOMContentLoaded', () => {
-    // Inicializar JSONBin primeiro
-    JSONBin.init();
-    
-    // Migrar dados locais para nuvem se necessário
-    JSONBin.migrateToCloud().then(() => {
-        // Carregar dados do JSONBin ou localStorage
-        JSONBin.loadAllData().then(() => {
-            // Inicializar o app após carregar os dados
             App.Core.init();
+            document.getElementById('refreshData').addEventListener('click', App.Core.refreshData);
+            document.getElementById('openSettings').addEventListener('click', App.Settings.openModal);
+            document.getElementById('searchToken').addEventListener('input', (e) => {
+                const term = e.target.value.toUpperCase();
+                document.querySelectorAll('.card').forEach(c => c.style.display = c.dataset.symbol.includes(term) ? 'flex' : 'none');
+            });
         });
-    });
-    
-    document.getElementById('refreshData').addEventListener('click', App.Core.refreshData);
-    document.getElementById('openSettings').addEventListener('click', App.Settings.openModal);
-    document.getElementById('searchToken').addEventListener('input', (e) => {
-        const term = e.target.value.toUpperCase();
-        document.querySelectorAll('.card').forEach(c => c.style.display = c.dataset.symbol.includes(term) ? 'flex' : 'none');
-    });
-});
     </script>
 </body>
 </html>
