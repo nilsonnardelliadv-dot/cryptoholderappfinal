@@ -1113,8 +1113,12 @@ const Back4App = {
             // 2. CORE ENGINE PROFISSIONAL
             Core: {
                 init: async () => {
+    init: async () => {
     // Inicializar Back4App
     Back4App.init();
+    
+    // MIGRAR dados locais para nuvem (se necessário)
+    await Back4App.migrateLocalToCloud();
     
     // Carregar dados online
     await Back4App.loadAllData();
@@ -2753,6 +2757,64 @@ Alerts: {
         });
         
         document.addEventListener('DOMContentLoaded', () => {
+// FUNÇÃO DE MIGRAÇÃO - ADICIONE ISSO NO Back4App
+migrateLocalToCloud: async function() {
+    // Verificar se temos dados locais
+    const localTokens = JSON.parse(localStorage.getItem('holder_tokens'));
+    const localAlerts = JSON.parse(localStorage.getItem('holder_alerts'));
+    const localTrades = JSON.parse(localStorage.getItem('holder_trades'));
+    const localSettings = JSON.parse(localStorage.getItem('holder_settings'));
+    
+    // Verificar se o Back4App está vazio
+    try {
+        const response = await fetch(`https://parseapi.back4app.com/classes/UserSession?where={"sessionId":"${this.SESSION_ID}"}`, {
+            headers: this.getHeaders()
+        });
+        
+        const result = await response.json();
+        const isBack4AppEmpty = result.results.length === 0;
+        
+        // Se Back4App vazio E temos dados locais → MIGRAR
+        if (isBack4AppEmpty && (localTokens || localAlerts || localTrades)) {
+            console.log('🚀 Migrando dados locais para Back4App...');
+            
+            // Migrar tokens
+            if (localTokens && localTokens.length > 0) {
+                App.State.tokens = localTokens;
+            }
+            
+            // Migrar alertas
+            if (localAlerts && localAlerts.length > 0) {
+                App.State.alerts = localAlerts;
+            }
+            
+            // Migrar trades
+            if (localTrades && localTrades.length > 0) {
+                App.State.trades = localTrades;
+            }
+            
+            // Migrar settings
+            if (localSettings) {
+                App.State.settings = localSettings;
+            }
+            
+            // Salvar TUDO no Back4App
+            await this.saveUserData();
+            await this.saveAlerts();
+            await this.saveTrades();
+            
+            console.log('✅ Migração concluída! Dados locais salvos na nuvem.');
+            
+            // Opcional: limpar localStorage antigo
+            localStorage.removeItem('holder_tokens');
+            localStorage.removeItem('holder_alerts');
+            localStorage.removeItem('holder_trades');
+            localStorage.removeItem('holder_settings');
+        }
+    } catch (error) {
+        console.error('❌ Erro na migração:', error);
+    }
+}
             App.Core.init();
             document.getElementById('refreshData').addEventListener('click', App.Core.refreshData);
             document.getElementById('openSettings').addEventListener('click', App.Settings.openModal);
