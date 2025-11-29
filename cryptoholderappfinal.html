@@ -28,324 +28,177 @@
             }
         }
 
-// BACK4APP CONFIGURAÇÃO - VERSÃO SEM CORS REQUIRED
-const Back4App = {
-    APP_ID: 'bmQehP1unz41RunqvZHHYiyqOTtMFrUocaq6n6oe',
-    REST_API_KEY: 'NGRc7GkRTcszNK77Zsgnz2GE3N7Ks7uyn021WeJF', 
-    SESSION_ID: localStorage.getItem('holder_session_id') || 'crypto_user_' + Date.now(),
+// JSONBIN STORAGE - VERSÃO SIMPLES E FUNCIONAL
+const JSONBin = {
+    MASTER_KEY: '$2a$10$X5MFvq8GLK0lXekQ0OPyueQ1bqbbv1A48VT4JR.kOAujJO2NWLI7G', // ← SUA KEY DO JSONBIN
+    BIN_ID: localStorage.getItem('crypto_bin_id'),
+    API_URL: 'https://api.jsonbin.io/v3/b',
     
     init() {
-        if (!localStorage.getItem('holder_session_id')) {
-            localStorage.setItem('holder_session_id', this.SESSION_ID);
+        console.log('📦 JSONBin inicializado');
+        if (this.BIN_ID) {
+            console.log('🔗 Bin ID encontrado:', this.BIN_ID);
         }
-        console.log('🔐 Session ID:', this.SESSION_ID);
     },
 
-    getHeaders() {
-        return {
-            'X-Parse-Application-Id': this.APP_ID,
-            'X-Parse-REST-API-Key': this.REST_API_KEY,
-            'Content-Type': 'application/json'
+    // SALVAR TODOS OS DADOS
+    async saveAllData() {
+        const data = {
+            tokens: App.State.tokens,
+            alerts: App.State.alerts,
+            trades: App.State.trades.slice(0, 50),
+            settings: App.State.settings,
+            lastUpdated: new Date().toISOString()
         };
-    },
 
-    // REQUISIÇÃO COM FALLBACK AUTOMÁTICO
-    async makeSafeRequest(url, options = {}) {
+        console.log('💾 Salvando dados...', {
+            tokens: data.tokens.length,
+            alerts: data.alerts.length,
+            trades: data.trades.length
+        });
+
         try {
-            const response = await fetch(url, {
-                headers: this.getHeaders(),
-                ...options
-            });
+            let response;
             
-            if (!response.ok) throw new Error(`HTTP ${response.status}`);
+            if (this.BIN_ID) {
+                // ATUALIZAR BIN EXISTENTE
+                console.log('🔄 Atualizando bin existente:', this.BIN_ID);
+                response = await fetch(`${this.API_URL}/${this.BIN_ID}`, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-Master-Key': this.MASTER_KEY
+                    },
+                    body: JSON.stringify(data)
+                });
+            } else {
+                // CRIAR NOVO BIN
+                console.log('🆕 Criando novo bin...');
+                response = await fetch(this.API_URL, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-Master-Key': this.MASTER_KEY,
+                        'X-Bin-Name': 'CryptoPanelPRO Data'
+                    },
+                    body: JSON.stringify(data)
+                });
+                
+                const result = await response.json();
+                if (result.metadata && result.metadata.id) {
+                    this.BIN_ID = result.metadata.id;
+                    localStorage.setItem('crypto_bin_id', this.BIN_ID);
+                    console.log('✅ Novo bin criado:', this.BIN_ID);
+                }
+            }
             
-            return await response.json();
+            if (response && response.ok) {
+                console.log('✅ Dados salvos no JSONBin!');
+            } else {
+                throw new Error('Erro na resposta');
+            }
+            
         } catch (error) {
-            console.log('🌐 Usando fallback localStorage');
-            throw error; // Propaga o erro para ser tratado pelo caller
+            console.log('❌ Erro JSONBin, usando localStorage:', error);
+            this.saveToLocalStorage();
         }
     },
 
-    async migrateLocalToCloud() {
-        console.log('🔄 Verificando migração...');
+    // CARREGAR TODOS OS DADOS
+    async loadAllData() {
+        // Primeiro tenta JSONBin se tiver bin_id
+        if (this.BIN_ID) {
+            try {
+                console.log('📥 Carregando do JSONBin:', this.BIN_ID);
+                const response = await fetch(`${this.API_URL}/${this.BIN_ID}/latest`, {
+                    headers: {
+                        'X-Master-Key': this.MASTER_KEY
+                    }
+                });
+                
+                if (!response.ok) throw new Error('Bin não encontrado');
+                
+                const result = await response.json();
+                const data = result.record;
+                
+                this.applyData(data);
+                console.log('✅ Dados carregados do JSONBin!');
+                return;
+                
+            } catch (error) {
+                console.log('❌ Erro ao carregar do JSONBin:', error);
+                this.BIN_ID = null;
+                localStorage.removeItem('crypto_bin_id');
+            }
+        }
         
-        const localTokens = JSON.parse(localStorage.getItem('holder_tokens')) || [];
+        // Fallback para localStorage
+        console.log('📥 Carregando do localStorage...');
+        this.loadFromLocalStorage();
+    },
+
+    // APLICAR DADOS CARREGADOS
+    applyData(data) {
+        if (data.tokens) App.State.tokens = data.tokens;
+        if (data.alerts) App.State.alerts = data.alerts;
+        if (data.trades) App.State.trades = data.trades;
+        if (data.settings) App.State.settings = data.settings;
         
-        if (localTokens.length === 0) {
+        console.log('📊 Dados aplicados:', {
+            tokens: App.State.tokens.length,
+            alerts: App.State.alerts.length,
+            trades: App.State.trades.length
+        });
+    },
+
+    // SALVAR NO LOCALSTORAGE (BACKUP)
+    saveToLocalStorage() {
+        localStorage.setItem('holder_tokens', JSON.stringify(App.State.tokens));
+        localStorage.setItem('holder_alerts', JSON.stringify(App.State.alerts));
+        localStorage.setItem('holder_trades', JSON.stringify(App.State.trades.slice(0, 50)));
+        localStorage.setItem('holder_settings', JSON.stringify(App.State.settings));
+        console.log('💾 Dados salvos no localStorage (backup)');
+    },
+
+    // CARREGAR DO LOCALSTORAGE
+    loadFromLocalStorage() {
+        const tokens = JSON.parse(localStorage.getItem('holder_tokens'));
+        const alerts = JSON.parse(localStorage.getItem('holder_alerts'));
+        const trades = JSON.parse(localStorage.getItem('holder_trades'));
+        const settings = JSON.parse(localStorage.getItem('holder_settings'));
+        
+        if (tokens) App.State.tokens = tokens;
+        if (alerts) App.State.alerts = alerts;
+        if (trades) App.State.trades = trades;
+        if (settings) App.State.settings = settings;
+        
+        console.log('📊 Dados do localStorage:', {
+            tokens: App.State.tokens.length,
+            alerts: App.State.alerts.length,
+            trades: App.State.trades.length
+        });
+    },
+
+    // MIGRAR DADOS LOCAIS PARA JSONBIN
+    async migrateToCloud() {
+        const localTokens = JSON.parse(localStorage.getItem('holder_tokens'));
+        
+        if (!localTokens || localTokens.length === 0) {
             console.log('📱 Nenhum dado local para migrar');
             return;
         }
         
-        try {
-            // Teste simples de conexão
-            await this.makeSafeRequest('https://parseapi.back4app.com/classes/UserSession?limit=1');
-            console.log('✅ Back4App conectado, migrando dados...');
-            
-            // Migração dos dados
-            App.State.tokens = localTokens;
-            App.State.alerts = JSON.parse(localStorage.getItem('holder_alerts')) || [];
-            App.State.trades = JSON.parse(localStorage.getItem('holder_trades')) || [];
-            
-            await this.saveUserData();
-            await this.saveAlerts(); 
-            await this.saveTrades();
-            
-            console.log('🎉 Migração concluída!');
-            
-        } catch (error) {
-            console.log('📱 Back4App offline, usando localStorage');
-            this.enableLocalStorageFallback();
-        }
-    },
-
-    enableLocalStorageFallback() {
-        console.log('🔧 Ativando modo localStorage...');
+        console.log('🚀 Migrando dados locais para JSONBin...');
+        App.State.tokens = localTokens;
+        App.State.alerts = JSON.parse(localStorage.getItem('holder_alerts')) || [];
+        App.State.trades = JSON.parse(localStorage.getItem('holder_trades')) || [];
         
-        // Carregar dados do localStorage
-        const localTokens = JSON.parse(localStorage.getItem('holder_tokens'));
-        const localAlerts = JSON.parse(localStorage.getItem('holder_alerts'));
-        const localTrades = JSON.parse(localStorage.getItem('holder_trades'));
-        const localSettings = JSON.parse(localStorage.getItem('holder_settings'));
-        
-        if (localTokens) App.State.tokens = localTokens;
-        if (localAlerts) App.State.alerts = localAlerts;
-        if (localTrades) App.State.trades = localTrades;
-        if (localSettings) App.State.settings = localSettings;
-        
-        // Sobrescrever métodos para usar localStorage
-        this.saveUserData = async () => {
-            localStorage.setItem('holder_tokens', JSON.stringify(App.State.tokens));
-            localStorage.setItem('holder_settings', JSON.stringify(App.State.settings));
-            console.log('💾 Dados salvos no localStorage');
-        };
-        
-        this.saveAlerts = async () => {
-            localStorage.setItem('holder_alerts', JSON.stringify(App.State.alerts));
-            console.log('💾 Alertas salvos no localStorage');
-        };
-        
-        this.saveTrades = async () => {
-            localStorage.setItem('holder_trades', JSON.stringify(App.State.trades.slice(0, 50)));
-            console.log('💾 Trades salvos no localStorage');
-        };
-        
-        this.loadUserData = async () => {
-            const tokens = JSON.parse(localStorage.getItem('holder_tokens'));
-            const settings = JSON.parse(localStorage.getItem('holder_settings'));
-            if (tokens) App.State.tokens = tokens;
-            if (settings) App.State.settings = settings;
-            console.log('📥 Dados carregados do localStorage');
-        };
-        
-        this.loadAlerts = async () => {
-            const alerts = JSON.parse(localStorage.getItem('holder_alerts')) || [];
-            App.State.alerts = alerts;
-            console.log('📥 Alertas carregados do localStorage');
-        };
-        
-        this.loadTrades = async () => {
-            const trades = JSON.parse(localStorage.getItem('holder_trades')) || [];
-            App.State.trades = trades;
-            console.log('📥 Trades carregados do localStorage');
-        };
-    },
-
-    async saveUserData() {
-        try {
-            const userData = {
-                sessionId: this.SESSION_ID,
-                tokens: App.State.tokens,
-                settings: App.State.settings,
-                lastUpdated: new Date().toISOString()
-            };
-
-            const existing = await this.makeSafeRequest(
-                `https://parseapi.back4app.com/classes/UserSession?where={"sessionId":"${this.SESSION_ID}"}`
-            );
-            
-            if (existing.results.length > 0) {
-                await this.makeSafeRequest(
-                    `https://parseapi.back4app.com/classes/UserSession/${existing.results[0].objectId}`,
-                    { method: 'PUT', body: JSON.stringify(userData) }
-                );
-            } else {
-                await this.makeSafeRequest(
-                    'https://parseapi.back4app.com/classes/UserSession',
-                    { method: 'POST', body: JSON.stringify(userData) }
-                );
-            }
-            console.log('✅ UserData salvo no Back4App');
-        } catch (error) {
-            console.log('💾 UserData salvo no localStorage');
-            localStorage.setItem('holder_tokens', JSON.stringify(App.State.tokens));
-            localStorage.setItem('holder_settings', JSON.stringify(App.State.settings));
-        }
-    },
-
-    async loadUserData() {
-        try {
-            const result = await this.makeSafeRequest(
-                `https://parseapi.back4app.com/classes/UserSession?where={"sessionId":"${this.SESSION_ID}"}`
-            );
-            
-            if (result.results.length > 0) {
-                const data = result.results[0];
-                App.State.tokens = data.tokens || App.State.tokens;
-                App.State.settings = data.settings || App.State.settings;
-                console.log('✅ UserData carregado do Back4App');
-            }
-        } catch (error) {
-            console.log('📥 UserData carregado do localStorage');
-            const tokens = JSON.parse(localStorage.getItem('holder_tokens'));
-            const settings = JSON.parse(localStorage.getItem('holder_settings'));
-            if (tokens) App.State.tokens = tokens;
-            if (settings) App.State.settings = settings;
-        }
-    },
-
-    async saveAlerts() {
-        try {
-            const existingAlerts = await this.makeSafeRequest(
-                `https://parseapi.back4app.com/classes/Alerts?where={"sessionId":"${this.SESSION_ID}"}`
-            );
-            
-            for (const alert of existingAlerts.results) {
-                await this.makeSafeRequest(
-                    `https://parseapi.back4app.com/classes/Alerts/${alert.objectId}`,
-                    { method: 'DELETE' }
-                );
-            }
-            
-            for (const alert of App.State.alerts) {
-                await this.makeSafeRequest(
-                    'https://parseapi.back4app.com/classes/Alerts',
-                    {
-                        method: 'POST',
-                        body: JSON.stringify({
-                            sessionId: this.SESSION_ID,
-                            symbol: alert.symbol,
-                            type: alert.type,
-                            targetPrice: alert.targetPrice,
-                            currentPrice: alert.currentPrice,
-                            percent: alert.percent,
-                            notes: alert.notes,
-                            triggered: alert.triggered,
-                            triggeredAt: alert.triggeredAt,
-                            actualPrice: alert.actualPrice,
-                            createdAt: alert.createdAt
-                        })
-                    }
-                );
-            }
-            console.log('✅ Alertas salvos no Back4App');
-        } catch (error) {
-            console.log('💾 Alertas salvos no localStorage');
-            localStorage.setItem('holder_alerts', JSON.stringify(App.State.alerts));
-        }
-    },
-
-    async loadAlerts() {
-        try {
-            const result = await this.makeSafeRequest(
-                `https://parseapi.back4app.com/classes/Alerts?where={"sessionId":"${this.SESSION_ID}"}`
-            );
-            
-            App.State.alerts = result.results.map(alert => ({
-                id: alert.objectId,
-                symbol: alert.symbol,
-                type: alert.type,
-                targetPrice: alert.targetPrice,
-                currentPrice: alert.currentPrice || 0,
-                percent: alert.percent || 0,
-                notes: alert.notes || '',
-                triggered: alert.triggered || false,
-                triggeredAt: alert.triggeredAt || null,
-                actualPrice: alert.actualPrice || null,
-                createdAt: alert.createdAt || new Date().toISOString()
-            }));
-            console.log('✅ Alertas carregados do Back4App');
-        } catch (error) {
-            console.log('📥 Alertas carregados do localStorage');
-            const alerts = JSON.parse(localStorage.getItem('holder_alerts')) || [];
-            App.State.alerts = alerts;
-        }
-    },
-
-    async saveTrades() {
-        try {
-            const existingTrades = await this.makeSafeRequest(
-                `https://parseapi.back4app.com/classes/Trades?where={"sessionId":"${this.SESSION_ID}"}`
-            );
-            
-            for (const trade of existingTrades.results) {
-                await this.makeSafeRequest(
-                    `https://parseapi.back4app.com/classes/Trades/${trade.objectId}`,
-                    { method: 'DELETE' }
-                );
-            }
-            
-            const recentTrades = App.State.trades.slice(0, 50);
-            for (const trade of recentTrades) {
-                await this.makeSafeRequest(
-                    'https://parseapi.back4app.com/classes/Trades',
-                    {
-                        method: 'POST',
-                        body: JSON.stringify({
-                            sessionId: this.SESSION_ID,
-                            symbol: trade.symbol,
-                            side: trade.side,
-                            price: trade.price,
-                            qty: trade.qty || 1,
-                            timestamp: trade.timestamp
-                        })
-                    }
-                );
-            }
-            console.log('✅ Trades salvos no Back4App');
-        } catch (error) {
-            console.log('💾 Trades salvos no localStorage');
-            localStorage.setItem('holder_trades', JSON.stringify(App.State.trades.slice(0, 50)));
-        }
-    },
-
-    async loadTrades() {
-        try {
-            const result = await this.makeSafeRequest(
-                `https://parseapi.back4app.com/classes/Trades?where={"sessionId":"${this.SESSION_ID}"}&order=-createdAt&limit=50`
-            );
-            
-            App.State.trades = result.results.map(trade => ({
-                id: trade.objectId,
-                symbol: trade.symbol,
-                side: trade.side,
-                price: trade.price,
-                qty: trade.qty || 1,
-                timestamp: trade.timestamp || trade.createdAt
-            }));
-            console.log('✅ Trades carregados do Back4App');
-        } catch (error) {
-            console.log('📥 Trades carregados do localStorage');
-            const trades = JSON.parse(localStorage.getItem('holder_trades')) || [];
-            App.State.trades = trades;
-        }
-    },
-
-    async syncAllData() {
-        await this.saveUserData();
-        await this.saveAlerts();
-        await this.saveTrades();
-        console.log('✅ Todos os dados sincronizados');
-    },
-
-    async loadAllData() {
-        await this.loadUserData();
-        await this.loadAlerts();
-        await this.loadTrades();
-        console.log('✅ Todos os dados carregados');
+        await this.saveAllData();
+        console.log('🎉 Migração concluída!');
     }
-};
+};    
 
-    </script>
+</script>
 
     <style>
         /* Todos os estilos CSS existentes preservados */
@@ -760,15 +613,21 @@ const Back4App = {
 
         const App = {
             State: {
-                tokens: JSON.parse(localStorage.getItem('holder_tokens')) || ['BTCUSDT', 'ETHUSDT', 'BNBUSDT', 'SOLUSDT', 'ADAUSDT', 'XRPUSDT', 'DOTUSDT', 'LINKUSDT', 'LTCUSDT', 'BCHUSDT'],
-                alerts: JSON.parse(localStorage.getItem('holder_alerts')) || [],
-                trades: JSON.parse(localStorage.getItem('holder_trades')) || [],
-                ws: null, charts: {}, activeCard: null,
-                settings: JSON.parse(localStorage.getItem('holder_settings')) || { autoRefresh: true, refreshInterval: 60, alertSounds: true, defaultTimeframe: '1h' },
-                marketData: {}, ohlcData: {}, indicatorsData: {}, fiboData: {},
-                timeframes: ["1m","3m","5m","15m","1h","4h","1d","1w"],
-                currentPeriod: "24h"
-            },
+    tokens: JSON.parse(localStorage.getItem('holder_tokens')) || ['BTCUSDT', 'ETHUSDT', 'BNBUSDT', 'SOLUSDT', 'ADAUSDT', 'XRPUSDT', 'DOTUSDT', 'LINKUSDT', 'LTCUSDT', 'BCHUSDT'],
+    alerts: JSON.parse(localStorage.getItem('holder_alerts')) || [],
+    trades: JSON.parse(localStorage.getItem('holder_trades')) || [],
+    ws: null, charts: {}, activeCard: null,
+    settings: JSON.parse(localStorage.getItem('holder_settings')) || { autoRefresh: true, refreshInterval: 60, alertSounds: true, defaultTimeframe: '1h' },
+    marketData: {}, ohlcData: {}, indicatorsData: {}, fiboData: {},
+    timeframes: ["1m","3m","5m","15m","1h","4h","1d","1w"],
+    currentPeriod: "24h",
+    
+    // Função para salvar automaticamente no JSONBin
+    autoSave: function() {
+        console.log('💾 Salvamento automático...');
+        JSONBin.saveAllData();
+    }
+},
 
             // 1. LIBRARY: Conteúdo educacional para Holder PROFISSIONAL
             Library: {
@@ -1200,75 +1059,57 @@ const Back4App = {
 
             // 2. CORE ENGINE PROFISSIONAL
             Core: {
-            init: async () => {
-    console.log('🚀 Iniciando CryptoPanelPRO...');
-    
-    // Inicializar Back4App
-    Back4App.init();
-    
-    // TESTAR CONEXÃO PRIMEIRO
-    console.log('🔍 Testando conexão com Back4App...');
-    await Back4App.testConnection();
-    
-    // MIGRAR dados locais para nuvem
-    console.log('🔄 Iniciando migração de dados...');
-    await Back4App.migrateLocalToCloud();
-    
-    // Carregar dados online
-    console.log('📥 Carregando dados do Back4App...');
-    await Back4App.loadAllData();
-    
-    console.log('✅ Back4App configurado, iniciando UI...');
-    App.UI.tooltips();
-    await App.Core.startWebSocket();
-    await App.Core.preloadAllOHLC();
-    App.UI.grid(); 
-    App.UI.tables(); 
-    
-    // Adicionar event listeners para botões de período
-    document.querySelectorAll('.period-btn').forEach(btn => {
-        btn.addEventListener('click', function() {
-            const period = this.getAttribute('data-period');
-            App.State.currentPeriod = period;
-            App.UI.tables();
-            
-            document.querySelectorAll('.period-btn').forEach(b => {
-                b.classList.remove('bg-brand-500', 'text-white');
-                b.classList.add('bg-dark-700', 'text-gray-400');
-            });
-            this.classList.remove('bg-dark-700', 'text-gray-400');
-            this.classList.add('bg-brand-500', 'text-white');
-        });
-    });
-    
-    setInterval(() => { 
-        let e = document.getElementById('countdown'), v = +e.innerText.replace('s',''); 
-        e.innerText = (v <= 0 ? App.State.settings.refreshInterval : v - 1) + 's'; 
-        if (v <= 0 && App.State.settings.autoRefresh) App.Core.refreshData(); 
-    }, 1000);
-    
-    setInterval(() => {
-        App.State.tokens.forEach(symbol => {
-            App.State.timeframes.forEach(tf => { 
-                App.Core.incrementalUpdateOHLC(symbol, tf); 
-            });
-        });
-    }, 15000);
-    
-    setInterval(() => App.Alerts.checkAllAlerts(), 5000);
+                init: async () => {
+                    App.UI.tooltips();
+                    await App.Core.startWebSocket();
+                    await App.Core.preloadAllOHLC();
+                    App.UI.grid(); 
+                    App.UI.tables(); 
+                    
+                    // Adicionar event listeners para botões de período
+                    document.querySelectorAll('.period-btn').forEach(btn => {
+                        btn.addEventListener('click', function() {
+                            const period = this.getAttribute('data-period');
+                            App.State.currentPeriod = period;
+                            App.UI.tables();
+                            
+                            document.querySelectorAll('.period-btn').forEach(b => {
+                                b.classList.remove('bg-brand-500', 'text-white');
+                                b.classList.add('bg-dark-700', 'text-gray-400');
+                            });
+                            this.classList.remove('bg-dark-700', 'text-gray-400');
+                            this.classList.add('bg-brand-500', 'text-white');
+                        });
+                    });
+                    
+                    setInterval(() => { 
+                        let e = document.getElementById('countdown'), v = +e.innerText.replace('s',''); 
+                        e.innerText = (v <= 0 ? App.State.settings.refreshInterval : v - 1) + 's'; 
+                        if (v <= 0 && App.State.settings.autoRefresh) App.Core.refreshData(); 
+                    }, 1000);
+                    
+                    setInterval(() => {
+                        App.State.tokens.forEach(symbol => {
+                            App.State.timeframes.forEach(tf => { 
+                                App.Core.incrementalUpdateOHLC(symbol, tf); 
+                            });
+                        });
+                    }, 15000);
+                    
+                    setInterval(() => App.Alerts.checkAllAlerts(), 5000);
 
-    // Mobile menu toggle
-    document.getElementById('mobile-menu-toggle').addEventListener('click', function() {
-        const controls = document.getElementById('header-controls');
-        controls.classList.toggle('hidden');
-        controls.classList.toggle('flex');
-    });
+                    // Mobile menu toggle
+                    document.getElementById('mobile-menu-toggle').addEventListener('click', function() {
+                        const controls = document.getElementById('header-controls');
+                        controls.classList.toggle('hidden');
+                        controls.classList.toggle('flex');
+                    });
 
-    // Inicializar alertas
-    App.Alerts.renderAlertsPanel();
-    
-    document.getElementById('last-update').innerText = new Date().toLocaleTimeString();
-},
+                    // Inicializar alertas
+                    App.Alerts.renderAlertsPanel();
+                    
+                    document.getElementById('last-update').innerText = new Date().toLocaleTimeString();
+                },
                 
                 refreshData: () => { 
                     App.Core.preloadAllOHLC(); 
@@ -2060,7 +1901,8 @@ const Back4App = {
 
             // 7. ALERTAS PROFISSIONAIS - VERSÃO MODIFICADA COM LIMITE DE 15%
 Alerts: {
-        
+    saveToStorage: () => localStorage.setItem("holder_alerts", JSON.stringify(App.State.alerts)),
+    
     openModal: (btn = null) => {
         const modal = document.getElementById('alertsModal');
         const symbolSelect = document.getElementById('alert-symbol');
@@ -2094,70 +1936,73 @@ Alerts: {
         document.getElementById('alertsModal').classList.add('hidden');
     },
     
-    createAlert: async () => {
-    const symbol = document.getElementById('alert-symbol').value;
-    const type = document.getElementById('alert-type').value;
-    const price = parseFloat(document.getElementById('alert-price').value);
-    const notes = document.getElementById('alert-notes').value;
-    
-    if (!symbol || !price || isNaN(price)) {
-        alert('Preencha token e preço alvo válido!');
-        return;
-    }
-    
-    const currentPrice = App.State.marketData[symbol.toLowerCase()]?.lastPrice || 0;
-    const percent = currentPrice ? ((price - currentPrice) / currentPrice) * 100 : 0;
-    
-    const alert = {
-        id: Date.now(),
-        symbol: symbol.toUpperCase(),
-        type,
-        targetPrice: price,
-        currentPrice,
-        percent,
-        notes,
-        createdAt: new Date().toLocaleString(),
-        triggered: false,
-        triggeredAt: null,
-        actualPrice: null
-    };
-    
-    App.State.alerts.push(alert);
-    await Back4App.saveAlerts(); // SALVAR ONLINE
-    App.Alerts.renderAlertsPanel();
-    App.Alerts.closeModal();
-    
-    App.Alerts.renderInCard(symbol);
-    
-    console.log('Alerta criado:', alert);
-},
+    createAlert: () => {
+        const symbol = document.getElementById('alert-symbol').value;
+        const type = document.getElementById('alert-type').value;
+        const price = parseFloat(document.getElementById('alert-price').value);
+        const notes = document.getElementById('alert-notes').value;
+        
+        if (!symbol || !price || isNaN(price)) {
+            alert('Preencha token e preço alvo válido!');
+            return;
+        }
+        
+        const currentPrice = App.State.marketData[symbol.toLowerCase()]?.lastPrice || 0;
+        const percent = currentPrice ? ((price - currentPrice) / currentPrice) * 100 : 0;
+        
+        const alert = {
+            id: Date.now(),
+            symbol: symbol.toUpperCase(),
+            type,
+            targetPrice: price,
+            currentPrice,
+            percent,
+            notes,
+            createdAt: new Date().toLocaleString(),
+            triggered: false,
+            triggeredAt: null,
+            actualPrice: null
+        };
+        
+        App.State.alerts.push(alert);
+        App.Alerts.saveToStorage();
+        App.Alerts.renderAlertsPanel();
+        App.Alerts.closeModal();
+        
+        App.Alerts.renderInCard(symbol);
+
+        // Salvar no JSONBin após criar alerta
+        App.State.autoSave();        
+
+        console.log('Alerta criado:', alert);
+    },
     
     openForCard: (btn) => {
         App.Alerts.openModal(btn);
     },
     
-    addFromFibonacci: async (symbol, price, levelLabel) => {
-    const currentPrice = App.State.marketData[symbol.toLowerCase()]?.lastPrice || 0;
-    const percent = currentPrice ? ((price - currentPrice) / currentPrice) * 100 : 0;
-    const alert = {
-        id: Date.now(),
-        symbol: symbol.toUpperCase(),
-        type: price > currentPrice ? 'sell' : 'buy',
-        targetPrice: price,
-        currentPrice,
-        percent,
-        notes: `Fibonacci ${levelLabel}`,
-        createdAt: new Date().toLocaleString(),
-        triggered: false,
-        triggeredAt: null,
-        actualPrice: null
-    };
-    App.State.alerts.push(alert);
-    await Back4App.saveAlerts(); // SALVAR ONLINE
-    App.Alerts.renderAlertsPanel();
-    document.getElementById('metric-tooltip-overlay').classList.add('tooltip-hidden');
-    App.Alerts.renderInCard(symbol);
-},
+    addFromFibonacci: (symbol, price, levelLabel) => {
+        const currentPrice = App.State.marketData[symbol.toLowerCase()]?.lastPrice || 0;
+        const percent = currentPrice ? ((price - currentPrice) / currentPrice) * 100 : 0;
+        const alert = {
+            id: Date.now(),
+            symbol: symbol.toUpperCase(),
+            type: price > currentPrice ? 'sell' : 'buy',
+            targetPrice: price,
+            currentPrice,
+            percent,
+            notes: `Fibonacci ${levelLabel}`,
+            createdAt: new Date().toLocaleString(),
+            triggered: false,
+            triggeredAt: null,
+            actualPrice: null
+        };
+        App.State.alerts.push(alert);
+        App.Alerts.saveToStorage();
+        App.Alerts.renderAlertsPanel();
+        document.getElementById('metric-tooltip-overlay').classList.add('tooltip-hidden');
+        App.Alerts.renderInCard(symbol);
+    },
     
     checkAlerts: (symbol, currentPrice) => {
         if (!symbol || !currentPrice) return;
@@ -2222,16 +2067,16 @@ Alerts: {
         }, 5000);
     },
     
-    remove: async (id) => {
-    App.State.alerts = App.State.alerts.filter(alert => alert.id !== id);
-    await Back4App.saveAlerts(); // SALVAR ONLINE
-    App.Alerts.renderAlertsPanel();
-    
-    // Atualizar todos os cards
-    App.State.tokens.forEach(symbol => {
-        App.Alerts.renderInCard(symbol);
-    });
-},
+    remove: (id) => {
+        App.State.alerts = App.State.alerts.filter(alert => alert.id !== id);
+        App.Alerts.saveToStorage();
+        App.Alerts.renderAlertsPanel();
+        
+        // Atualizar todos os cards
+        App.State.tokens.forEach(symbol => {
+            App.Alerts.renderInCard(symbol);
+        });
+    },
     
     // CALCULAR PORCENTAGEM RESTANTE PARA ALVO
     calculateRemainingPercent: (alert) => {
@@ -2402,32 +2247,33 @@ Alerts: {
 
             // 8. TRADE (simulador)
             Trade: {
-                exec: async (btn, type) => { 
-    let c = btn.closest('.card');
-    let s = c.dataset.symbol;
-    let p = +c.querySelector('.price-display').dataset.v || 0;
-    
-    App.State.trades.unshift({ 
-        id: Date.now(), 
-        symbol: s, 
-        side: type, 
-        price: p, 
-        qty: 1, 
-        timestamp: new Date().toLocaleString() 
-    }); 
-    
-    await Back4App.saveTrades(); // SALVAR ONLINE
-    
-    const tradeHTML = `
-        <div class="flex justify-between border-b border-gray-800/50 py-1">
-            <span class="${type=='buy'?'text-green-500':'text-red-500'} font-bold">${type.toUpperCase()}</span>
-            <span class="text-white">$${p.toFixed(4)}</span>
-            <span class="text-gray-500 text-xs">${new Date().toLocaleTimeString()}</span>
-        </div>
-    `;
-    
-    c.querySelector('.trade-list').innerHTML = tradeHTML + c.querySelector('.trade-list').innerHTML;
-}
+                save: () => localStorage.setItem("holder_trades", JSON.stringify(App.State.trades)),
+                exec: (btn, type) => { 
+                    let c = btn.closest('.card');
+                    let s = c.dataset.symbol;
+                    let p = +c.querySelector('.price-display').dataset.v || 0;
+                    
+                    App.State.trades.unshift({ 
+                        id: Date.now(), 
+                        symbol: s, 
+                        side: type, 
+                        price: p, 
+                        qty: 1, 
+                        timestamp: new Date().toLocaleString() 
+                    }); 
+                    
+                    App.Trade.save(); 
+                    
+                    const tradeHTML = `
+                        <div class="flex justify-between border-b border-gray-800/50 py-1">
+                            <span class="${type=='buy'?'text-green-500':'text-red-500'} font-bold">${type.toUpperCase()}</span>
+                            <span class="text-white">$${p.toFixed(4)}</span>
+                            <span class="text-gray-500 text-xs">${new Date().toLocaleTimeString()}</span>
+                        </div>
+                    `;
+                    
+                    c.querySelector('.trade-list').innerHTML = tradeHTML + c.querySelector('.trade-list').innerHTML;
+                }
             },
 
             // 9. UI ENGINE PROFISSIONAL
@@ -2725,82 +2571,91 @@ Alerts: {
             },
 
             // 11. TOKEN MANAGEMENT
-            Token: {
-                add: async () => {
-    const input = document.getElementById('add-input');
-    let val = input.value.trim().toUpperCase();
-    if (!val) return;
-    
-    const symbol = val.endsWith('USDT') ? val : val + 'USDT';
-    if (App.State.tokens.includes(symbol)) { 
-        alert('Token já na lista.'); 
-        return; 
-    }
-    
-    try {
-        const res = await fetch(`https://api.binance.com/api/v3/ticker/price?symbol=${symbol}`);
-        const data = await res.json();
-        if (data.symbol) {
-            App.State.tokens.push(symbol);
-            await Back4App.saveUserData(); // SALVAR ONLINE
-            location.reload();
-        } else { 
-            alert('Token não encontrado.'); 
-        }
-    } catch (e) { 
-        alert('Erro de validação.'); 
-    }
-},
-                
-                rem: async (t) => {
-    App.State.tokens = App.State.tokens.filter(x=>x!==t);
-    await Back4App.saveUserData(); // SALVAR ONLINE
-    location.reload();
-},
-                
-                addBatch: async () => {
-    const textarea = document.getElementById('batch-tokens');
-    const tokens = textarea.value.trim().toUpperCase().split('\n');
-    let added = 0;
-    
-    tokens.forEach(token => {
-        token = token.trim();
-        if (!token) return;
+Token: {
+    add: async () => {
+        const input = document.getElementById('add-input');
+        let val = input.value.trim().toUpperCase();
+        if (!val) return;
         
-        const symbol = token.endsWith('USDT') ? token : token + 'USDT';
-        if (!App.State.tokens.includes(symbol)) {
-            App.State.tokens.push(symbol);
-            added++;
+        const symbol = val.endsWith('USDT') ? val : val + 'USDT';
+        if (App.State.tokens.includes(symbol)) { 
+            alert('Token já na lista.'); 
+            return; 
         }
-    });
+        
+        try {
+            const res = await fetch(`https://api.binance.com/api/v3/ticker/price?symbol=${symbol}`);
+            const data = await res.json();
+            if (data.symbol) {
+                App.State.tokens.push(symbol);
+                localStorage.setItem('holder_tokens', JSON.stringify(App.State.tokens));
+                // Salvar no JSONBin
+                App.State.autoSave();
+                location.reload();
+            } else { 
+                alert('Token não encontrado.'); 
+            }
+        } catch (e) { 
+            alert('Erro de validação.'); 
+        }
+    },
     
-    if (added > 0) {
-        await Back4App.saveUserData(); // SALVAR ONLINE
-        alert(`${added} tokens adicionados com sucesso!`);
+    rem: (t) => {
+        App.State.tokens = App.State.tokens.filter(x=>x!==t);
+        localStorage.setItem('holder_tokens', JSON.stringify(App.State.tokens));
+        // Salvar no JSONBin
+        App.State.autoSave();
         location.reload();
-    } else {
-        alert('Nenhum token novo foi adicionado.');
+    },
+    
+    addBatch: () => {
+        const textarea = document.getElementById('batch-tokens');
+        const tokens = textarea.value.trim().toUpperCase().split('\n');
+        let added = 0;
+        
+        tokens.forEach(token => {
+            token = token.trim();
+            if (!token) return;
+            
+            const symbol = token.endsWith('USDT') ? token : token + 'USDT';
+            if (!App.State.tokens.includes(symbol)) {
+                App.State.tokens.push(symbol);
+                added++;
+            }
+        });
+        
+        if (added > 0) {
+            localStorage.setItem('holder_tokens', JSON.stringify(App.State.tokens));
+            // Salvar no JSONBin
+            App.State.autoSave();
+            alert(`${added} tokens adicionados com sucesso!`);
+            location.reload();
+        } else {
+            alert('Nenhum token novo foi adicionado.');
+        }
+    },
+    
+    removeSelected: () => {
+        const checkboxes = document.querySelectorAll('#settings-tokens-list .token-checkbox:checked');
+        if (checkboxes.length === 0) {
+            alert('Selecione pelo menos um token para remover.');
+            return;
+        }
+        
+        const tokensToRemove = Array.from(checkboxes).map(cb => cb.value);
+        App.State.tokens = App.State.tokens.filter(t => !tokensToRemove.includes(t));
+        localStorage.setItem('holder_tokens', JSON.stringify(App.State.tokens));
+        
+        // Salvar no JSONBin
+        App.State.autoSave();
+        
+        App.Settings.renderTokensList();
+        App.UI.grid();
+        App.UI.tables();
+        
+        alert(`${tokensToRemove.length} tokens removidos com sucesso!`);
     }
 },
-                
-                removeSelected: async () => {
-    const checkboxes = document.querySelectorAll('#settings-tokens-list .token-checkbox:checked');
-    if (checkboxes.length === 0) {
-        alert('Selecione pelo menos um token para remover.');
-        return;
-    }
-    
-    const tokensToRemove = Array.from(checkboxes).map(cb => cb.value);
-    App.State.tokens = App.State.tokens.filter(t => !tokensToRemove.includes(t));
-    await Back4App.saveUserData(); // SALVAR ONLINE
-    
-    App.Settings.renderTokensList();
-    App.UI.grid();
-    App.UI.tables();
-    
-    alert(`${tokensToRemove.length} tokens removidos com sucesso!`);
-}
-            },
 
             // 12. SETTINGS
             Settings: {
@@ -2845,7 +2700,7 @@ Alerts: {
             }
         };
 
-                // Inicialização
+        // Inicialização
         App.Core.onOHLCUpdate((s, tf) => {
             App.UI.updateTokenCard(s.toUpperCase());
             App.Fibonacci.analyze(s.toLowerCase(), tf);
@@ -2853,42 +2708,25 @@ Alerts: {
         });
         
         document.addEventListener('DOMContentLoaded', () => {
-            App.Core.init();
-            document.getElementById('refreshData').addEventListener('click', App.Core.refreshData);
-            document.getElementById('openSettings').addEventListener('click', App.Settings.openModal);
-            document.getElementById('searchToken').addEventListener('input', (e) => {
-                const term = e.target.value.toUpperCase();
-                document.querySelectorAll('.card').forEach(c => c.style.display = c.dataset.symbol.includes(term) ? 'flex' : 'none');
-            });
-        });
-
-// BOTÃO DE DEBUG TEMPORÁRIO - ADICIONE ISSO NO FINAL
-function addDebugButton() {
-    const debugButton = document.createElement('button');
-    debugButton.innerHTML = '<i class="fa-solid fa-bug"></i> Debug';
-    debugButton.className = 'p-2 bg-red-600 hover:bg-red-500 text-white rounded-lg ml-2';
-    debugButton.onclick = async function() {
-        console.log('🔄 FORÇANDO MIGRAÇÃO MANUAL...');
-        const connected = await Back4App.testConnection();
-        if (!connected) {
-            alert('❌ Conexão com Back4App falhou! Verifique as credenciais.');
-            return;
-        }
-        await Back4App.migrateLocalToCloud();
-        alert('✅ Migração forçada! Verifique o console (F12).');
-    };
+    // Inicializar JSONBin primeiro
+    JSONBin.init();
     
-    // Adicionar ao header
-    const headerControls = document.getElementById('header-controls');
-    if (headerControls) {
-        headerControls.appendChild(debugButton);
-    }
-}
-
-// Chamar quando a página carregar
-document.addEventListener('DOMContentLoaded', function() {
-    setTimeout(addDebugButton, 1000);
+    // Migrar dados locais para nuvem se necessário
+    JSONBin.migrateToCloud().then(() => {
+        // Carregar dados do JSONBin ou localStorage
+        JSONBin.loadAllData().then(() => {
+            // Inicializar o app após carregar os dados
+            App.Core.init();
+        });
+    });
+    
+    document.getElementById('refreshData').addEventListener('click', App.Core.refreshData);
+    document.getElementById('openSettings').addEventListener('click', App.Settings.openModal);
+    document.getElementById('searchToken').addEventListener('input', (e) => {
+        const term = e.target.value.toUpperCase();
+        document.querySelectorAll('.card').forEach(c => c.style.display = c.dataset.symbol.includes(term) ? 'flex' : 'none');
+    });
 });
-</script>
+    </script>
 </body>
 </html>
