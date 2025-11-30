@@ -406,31 +406,31 @@
                     </div>
                     
                     <div class="bg-dark-950 p-2 rounded border border-gray-800">
-    <h5 class="text-[9px] text-gray-500 uppercase font-bold mb-1 border-b border-gray-800 pb-1 cursor-help" data-tip="analysis_auto">Análise Holder</h5>
-    <div class="analysis-auto-content text-[10px] text-gray-300 space-y-2">
-        <div class="flex justify-between">
-            <span class="cursor-help" data-tip="analysis_rsi">RSI:</span>
-            <span class="analysis-rsi cursor-help" data-tip="analysis_rsi">--</span>
-        </div>
-        <div class="flex justify-between">
-            <span class="cursor-help" data-tip="analysis_support">Suporte:</span>
-            <span class="analysis-support cursor-help" data-tip="analysis_support">--</span>
-        </div>
-        <div class="flex justify-between">
-            <span class="cursor-help" data-tip="analysis_fib">Fibonacci:</span>
-            <span class="analysis-fib cursor-help" data-tip="analysis_fib">--</span>
-        </div>
-        <div class="flex justify-between">
-            <span class="cursor-help" data-tip="analysis_sma30">SMA30:</span>
-            <span class="analysis-sma30 cursor-help" data-tip="analysis_sma30">--</span>
-        </div>
-        <div class="flex justify-between">
-            <span class="cursor-help" data-tip="analysis_score">Score:</span>
-            <span class="analysis-score cursor-help" data-tip="analysis_score">--</span>
-        </div>
-        <div class="analysis-recommendation text-center mt-2 font-bold cursor-help" data-tip="analysis_recommendation">--</div>
-    </div>
-</div>
+                        <h5 class="text-[9px] text-gray-500 uppercase font-bold mb-1 border-b border-gray-800 pb-1 cursor-help" data-tip="analysis_auto">Análise Holder</h5>
+                        <div class="analysis-auto-content text-[10px] text-gray-300 space-y-2">
+                            <div class="flex justify-between">
+                                <span class="cursor-help" data-tip="analysis_rsi">RSI:</span>
+                                <span class="analysis-rsi">--</span>
+                            </div>
+                            <div class="flex justify-between">
+                                <span class="cursor-help" data-tip="analysis_support">Suporte:</span>
+                                <span class="analysis-support">--</span>
+                            </div>
+                            <div class="flex justify-between">
+                                <span class="cursor-help" data-tip="analysis_fib">Fibonacci:</span>
+                                <span class="analysis-fib">--</span>
+                            </div>
+                            <div class="flex justify-between">
+                                <span class="cursor-help" data-tip="analysis_sma30">SMA30:</span>
+                                <span class="analysis-sma30">--</span>
+                            </div>
+                            <div class="flex justify-between">
+                                <span class="cursor-help" data-tip="analysis_score">Score:</span>
+                                <span class="analysis-score">--</span>
+                            </div>
+                            <div class="analysis-recommendation text-center mt-2 font-bold">--</div>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -879,15 +879,7 @@
                     example: "Score 76/100 - oportunidade forte de compra"
                 }
             },
-'analysis_recommendation': { 
-                    title: "Recomendação Automatizada", 
-                    what: "Resumo da análise técnica que sintetiza todos os indicadores em uma recomendação clara de ação.", 
-                    interp: "<b>OPORTUNIDADE DE COMPRA:</b> Condições técnicas favoráveis para acumulação<br><b>CONSIDERE VENDER:</b> Preço elevado com indicadores sobrecomprados<br><b>SITUAÇÃO NEUTRA:</b> Aguardar melhor oportunidade", 
-                    tip: "Use esta recomendação como ponto de partida, mas sempre confirme com análise mais detalhada antes de investir.",
-                    factors: "Baseado no Score Holder combinado com RSI, Suporte, Fibonacci e SMA30",
-                    example: "OPORTUNIDADE DE COMPRA: RSI oversold, próximo ao suporte e Fibonacci 0.618"
-                }
-            },
+
             // 2. CORE ENGINE PROFISSIONAL
             Core: {
                 init: async () => {
